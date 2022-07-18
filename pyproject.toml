@@ -1,0 +1,28 @@
+[project]
+name = "affection"
+version = "0.1.0"
+description = "Algebraic Effect for modern Python."
+authors = [
+    {name = "BlueGlassBlock", email = "blueglassblock@outlook.com"},
+]
+dependencies = [
+    "typing-extensions~=4.3",
+]
+requires-python = ">=3.7, <4.0"
+readme = "README.md"
+license = {text = "MIT"}
+[project.optional-dependencies]
+
+[build-system]
+requires = ["pdm-pep517>=1.0.0"]
+build-backend = "pdm.pep517.api"
+
+[tool]
+[tool.pdm]
+[tool.pdm.dev-dependencies]
+dev = [
+    "pre-commit>=2.20.0",
+    "black>=22.6.0",
+    "isort>=5.10.1",
+    "flake8>=4.0.1",
+]
