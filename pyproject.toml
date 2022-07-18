@@ -1,6 +1,6 @@
 [project]
 name = "affection"
-version = "0.1.0"
+version = "0.1.1"
 description = "Algebraic Effect for modern Python."
 authors = [
     {name = "BlueGlassBlock", email = "blueglassblock@outlook.com"},
@@ -19,6 +19,8 @@ build-backend = "pdm.pep517.api"
 
 [tool]
 [tool.pdm]
+[tool.pdm.build]
+includes = ["affection.py"]
 [tool.pdm.dev-dependencies]
 dev = [
     "pre-commit>=2.20.0",
