@@ -12,26 +12,26 @@ def get_name(name: str | None = None) -> str:
 
 
 def main():
-    with Handle() as h:
+    h = Handle()
 
-        @Log.handle(h)
-        def _(l: Log):
-            print(l.content)
+    @Log.handle()
+    def _(l: Log):
+        print(l.content)
 
-        @effect("ask_name", str).handle(h)
-        def _(_) -> str:
-            return "Default"
+    @effect("ask_name", str).handle()
+    def _(_) -> str:
+        return "Default"
 
+    with h:
         perform(Log("Test parent log"))
 
-        with Handle() as i_h:
+    @Log.handle(override=True)
+    def _(l: Log):
+        print("Inner", l.content.lower())
 
-            @Log.handle(i_h)
-            def _(l: Log):
-                print("Inner", l.content.lower())
-
-            print(get_name("Ann"))
-            print(get_name())
+    with h:
+        print(get_name("Ann"))
+        print(get_name())
 
 
 if __name__ == "__main__":

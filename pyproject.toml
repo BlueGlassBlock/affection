@@ -1,6 +1,6 @@
 [project]
 name = "affection"
-version = "0.1.1"
+version = "0.2.0"
 description = "Algebraic Effect for modern Python."
 authors = [
     {name = "BlueGlassBlock", email = "blueglassblock@outlook.com"},
@@ -11,6 +11,9 @@ dependencies = [
 requires-python = ">=3.7, <4.0"
 readme = "README.md"
 license = {text = "MIT"}
+[project.urls]
+repository = "https://github.com/BlueGlassBlock/affection"
+
 [project.optional-dependencies]
 
 [build-system]

@@ -1,8 +1,32 @@
-"""Affection - Algebraic Effects for modern Python."""
+"""Affection - Algebraic Effects for modern Python.
+
+Licensed under MIT License.
+
+Copyright (c) 2022 BlueGlassBlock
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
 
 # Here we use `annotations` feature to provide consistent type annotations
 from __future__ import annotations
 
+import inspect
 from collections.abc import Coroutine
 from typing import Any, Callable, Generic, TypeVar
 
@@ -13,8 +37,12 @@ class EffectEscaped(RuntimeError):
     """A effect has not been handled, and yet escaped."""
 
 
-class InactiveHandle(RuntimeError):
-    """The handle is inactive, and required to be used in `with` clause."""
+class NoActiveHandle(RuntimeError):
+    """You attempted to handle an effect without an active handle."""
+
+
+class HandleConflict(RuntimeError):
+    """You instantiated multiple handles in one frame."""
 
 
 class __HandlerLookupChain:
@@ -29,16 +57,17 @@ class __HandlerLookupChain:
                 return mapping[key]
         raise EffectEscaped(key)
 
+    def __contains__(self, handle: Handle) -> bool:
+        return handle.record in self.maps
+
     def __setitem__(self, key, value) -> None:
         self.maps[-1][key] = value
 
     def pop(self) -> None:
         self.maps.pop()
 
-    def append(self) -> dict[type[Effect[Any]], Callable[[Effect[Any]], Any]]:
-        d: dict[type[Effect[Any]], Callable[[Effect[Any]], Any]] = {}
+    def append(self, d: dict[type[Effect[Any]], Callable[[Effect[Any]], Any]]) -> None:
         self.maps.append(d)
-        return d
 
 
 _lookup_chain = __HandlerLookupChain()
@@ -50,13 +79,20 @@ _T = TypeVar("_T")
 class Effect(Generic[_T]):
     @classmethod
     def handle(
-        cls, handle: Handle
+        cls, override: bool = False
     ) -> Callable[[Callable[[Self], _T]], Callable[[Self], _T]]:
-        # TODO: Automatically determine handle nesting level
+        caller_frame = inspect.stack(1)[1]
+        handle: Handle | None = None
+        for v in caller_frame.frame.f_locals.values():
+            if isinstance(v, Handle):
+                if handle:
+                    raise HandleConflict(HandleConflict.__doc__)
+                handle = v
+        if not handle:
+            raise NoActiveHandle(NoActiveHandle.__doc__)
+
         def inner(func: Callable[[Self], _T]) -> Callable[[Self], _T]:
-            if handle.record is None:
-                raise InactiveHandle(handle)
-            if cls in handle.record:
+            if cls in handle.record and not override:
                 raise KeyError(f"{cls} is already handled by {func} on this handler!")
             handle.record[cls] = func
             return func
@@ -89,15 +125,22 @@ def effect(name: str, cls: type[_T] = type(None)) -> Effect[_T]:
 
 class Handle:
     def __init__(self):
-        self.record = None
+        self.record = {}
 
     def __enter__(self):
-        self.record = _lookup_chain.append()
-        return self
+        _lookup_chain.append(self.record)
 
     def __exit__(self, *_):
         _lookup_chain.pop()
         return False
+
+    def wipe(self, *effects: type[Effect] | Effect) -> None:
+        if not effects:  # wipe out everything
+            self.record.clear()
+        for e in effects:
+            if isinstance(e, Effect):
+                e = e.__class__  # for dynamically created effects
+            self.record.pop(e, None)  # ignore already wiped effects
 
     def __repr__(self):
         return f"Handle({self.record!r})"
